@@ -313,7 +313,7 @@ def test(method='sgd', data='covtype', exp_decay=1, subset_size=1., greedy=1, sh
     else:
         g_range, b_range = get_param_range(subset_size, exp_decay, method, data)
 
-    folder = f'/lfs/local/0/baharanm/faster/subsets/final/{data}'
+    folder = f'/tmp/{data}'
     x_runs_f = [[]] * num_runs
     f_runs_f = np.zeros((num_runs, num_epochs))
     ft_runs_f = np.zeros((num_runs, num_epochs))
@@ -402,7 +402,7 @@ def test(method='sgd', data='covtype', exp_decay=1, subset_size=1., greedy=1, sh
 
 
 def gradient_difference(data, method, rand, metric, reg=1e-5):
-    folder = f'/lfs/local/0/baharanm/faster/subsets/final/{data}'
+    folder = f'/tmp/{data}'
     train_data, train_target, val_data, val_target, test_data, test_target = load_dataset(data)
 
     num_runs = 1 if 'grd' in rand else 5
@@ -535,6 +535,5 @@ if __name__ == '__main__':
         gradient_difference(data=args.data, method=args.method, rand=rand, metric=args.metric)
     else:
         test(method=args.method, data=args.data, exp_decay=args.exp_decay, subset_size=args.subset_size,
-             # file_num=args.file_num,
              greedy=args.greedy, shuffle=args.shuffle, b_cnt=args.b, g_cnt=args.g, num_runs=args.num_runs,
              metric=args.metric, rand=rand, num_epochs=args.num_epochs, from_all=args.from_all)

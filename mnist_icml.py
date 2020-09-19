@@ -27,7 +27,8 @@ reg = 1e-4
 runs = 5
 save_subset = False
 
-folder = f'/tmp'
+# path to save the results
+folder = f'/tmp/mnist'
 
 
 model = Sequential()
@@ -123,7 +124,6 @@ for run in range(runs):
             f'Saving the results to {folder}_{subset_size}_{grd}_{runs}')
 
         np.savez(f'{folder}_{subset_size}_{grd}_{runs}',
-                 # f'_{grd}_{args.lr_schedule}_start_{args.start_subset}_lag_{args.lag}_subset',
                  train_loss=train_loss, test_acc=test_acc, train_acc=train_acc, test_loss=test_loss,
                  train_time=train_time, grd_time=grd_time, sim_time=sim_time, pred_time=pred_time,
                  not_selected=not_selected, times_selected=times_selected,
@@ -133,7 +133,6 @@ for run in range(runs):
             f'Saving the results to {folder}_{subset_size}_{grd}_{runs}')
 
         np.savez(f'{folder}_{subset_size}_{grd}_{runs}',
-                 # f'_{grd}_{args.lr_schedule}_start_{args.start_subset}_lag_{args.lag}',
                  train_loss=train_loss, test_acc=test_acc, train_acc=train_acc, test_loss=test_loss,
                  train_time=train_time, grd_time=grd_time, sim_time=sim_time, pred_time=pred_time,
                  not_selected=not_selected, times_selected=times_selected)

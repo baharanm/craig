@@ -1,4 +1,3 @@
-import itertools
 import os
 import subprocess
 import time
@@ -8,22 +7,10 @@ from nearpy import Engine
 from nearpy.distances import EuclideanDistance
 from nearpy.filters import NearestFilter
 from nearpy.hashes import RandomBinaryProjections
-import matplotlib.pyplot as plt
 import numpy as np
 from lazy_greedy import FacilityLocation, lazy_greedy_heap
-import scipy.spatial
-# from eucl_dist.cpu_dist import dist
-# from eucl_dist.gpu_dist import dist as gdist
-
-
-from multiprocessing.dummy import Pool as ThreadPool
-from itertools import repeat
 import sklearn
 
-# from lazy_greedy import FacilityLocation, lazy_greedy, lazy_greedy_heap
-# from set_cover import SetCover
-
-from tensorflow.contrib.learn.python.learn.datasets.mnist import read_data_sets
 from tensorflow.examples.tutorials.mnist import input_data
 
 SEED = 100
@@ -101,16 +88,7 @@ def load_dataset(dataset, dataset_dir):
             y[y == -1] = 0
         else:
             y = y - np.ones(len(y), dtype=np.int32)
-    # else:
-    #     X, y = [], []
-    #     path = os.path.join(dataset_dir, dataset)
-    #     with open(path, 'r') as f:
-    #         for line in f:
-    #             elements = line.split()
-    #             X.append([float(x.split(':')[1]) for x in elements[1:]])
-    #             y.append(float(elements[0]))
-    #     X = np.array(X)
-    #     y = np.array(y)
+
     return X, y
 
 
@@ -159,7 +137,6 @@ def similarity(X, metric):
     Returns
     - S: np.array, shape [N, N]
     '''
-    # print(f'Computing similarity for {metric}...', flush=True)
     start = time.time()
     dists = sklearn.metrics.pairwise_distances(X, metric=metric, n_jobs=1)
     elapsed = time.time() - start
@@ -167,18 +144,11 @@ def similarity(X, metric):
     if metric == 'cosine':
         S = 1 - dists
     elif metric == 'euclidean' or metric == 'l1':
-        # S = np.exp(-dists)
-        # print('before max')
         m = np.max(dists)
-        # print(f'max: {m}')
         S = m - dists
-        # max: 7.856385231018066
-        L0 = m * len(dists)
-        # print(f'm-dist')
     else:
         raise ValueError(f'unknown metric: {metric}')
 
-    # print(f'time (sec) for computing {metric} similarity: {elapsed}, max_d*n = {L0}', flush=True)
     return S, elapsed
 
 
@@ -220,7 +190,6 @@ def greedy_merge(X, y, B, part_num, metric, smtk=0, stoch_greedy=False):
     # order_mg, weights_mg, order_sz, weights_sz, ordering_time, similarity_time
     order, weights, order_sz, weights_sz, ordering_time_merge, similarity_time_merge = get_orders_and_weights(
         B, X[order_mg, :], metric, smtk, stoch_greedy, y[order_mg], weights_mg)
-    # weights /= (np.sum(weights))  # TODO <=============
     print(weights)
     total_ordering_time = np.max(ordering_time) + ordering_time_merge
     total_similarity_time = np.max(similarity_time) + similarity_time_merge
@@ -271,7 +240,6 @@ def greedi(X, y, B, part_num, metric, smtk=0, stoch_greedy=False, seed=-1):
     # order_mg, weights_mg, order_sz, weights_sz, ordering_time, similarity_time
     order, weights, order_sz, weights_sz, ordering_time_merge, similarity_time_merge = get_orders_and_weights(
         B, X[order_mg,:], metric, smtk, stoch_greedy, y[order_mg], weights_mg)
-    # weights /= (np.sum(weights)) #TODO NOTE <=============
     print(weights)
     order = order_mg[order]
     total_ordering_time = np.max(ordering_time) + ordering_time_merge
@@ -297,16 +265,16 @@ def get_facility_location_submodular_order(S, B, c, smtk=0, no=0, stoch_greedy=0
 
     if smtk > 0:
         print(f'Calculating ordering with SMTK... part size: {len(S)}, B: {B}', flush=True)
-        np.save(f'/lfs/local/0/baharanm/faster/tmp/{no}/{smtk}-{c}', S) #todo:try thread for greedi
+        np.save(f'/tmp/{no}/{smtk}-{c}', S)
         if stoch_greedy > 0:
             p = subprocess.check_output(
-                f'/lfs/local/0/baharanm/{no}/smtk-master{smtk}/build/smraiz -sumsize {B} \
-                 -stochastic-greedy -sg-epsilon {stoch_greedy} -flnpy /lfs/local/0/baharanm/faster/tmp/{no}/{smtk}-{c}.'
+                f'/tmp/{no}/smtk-master{smtk}/build/smraiz -sumsize {B} \
+                 -stochastic-greedy -sg-epsilon {stoch_greedy} -flnpy /tmp/{no}/{smtk}-{c}.'
                 f'npy -pnpv -porder -ptime'.split())
         else:
             p = subprocess.check_output(
-                f'/lfs/local/0/baharanm/{no}/smtk-master{smtk}/build/smraiz -sumsize {B} \
-                             -flnpy /lfs/local/0/baharanm/faster/tmp/{no}/{smtk}-{c}.npy -pnpv -porder -ptime'.split())
+                f'/tmp/{no}/smtk-master{smtk}/build/smraiz -sumsize {B} \
+                             -flnpy /tmp/{no}/{smtk}-{c}.npy -pnpv -porder -ptime'.split())
         s = p.decode("utf-8")
         str, end = ['([', ',])']
         order = s[s.find(str) + len(str):s.rfind(end)].split(',')
@@ -330,7 +298,6 @@ def get_facility_location_submodular_order(S, B, c, smtk=0, no=0, stoch_greedy=0
             sz[np.argmax(S[i, order])] += 1
         else:
             sz[np.argmax(S[i, order])] += weights[i]
-    # print('time (sec) for computing facility location:', greedy_time, flush=True)
     collected = gc.collect()
     return order, sz, greedy_time, F_val
 
@@ -344,141 +311,6 @@ def faciliy_location_order(c, X, y, metric, num_per_class, smtk, no, stoch_greed
     order, cluster_sz, greedy_time, F_val = get_facility_location_submodular_order(
         S, num_per_class, c, smtk, no, stoch_greedy, weights)
     return class_indices[order], cluster_sz, greedy_time, S_time
-
-
-def save_all_orders_and_weights(folder, X, metric='l2', stoch_greedy=False, y=None, equal_num=False, outdir='.'): #todo
-    N = X.shape[0]
-    if y is None:
-        y = np.zeros(N, dtype=np.int32)  # assign every point to the same class
-    classes = np.unique(y)
-    C = len(classes)  # number of classes
-    # assert np.array_equal(classes, np.arange(C))
-    # assert B % C == 0
-    class_nums = [sum(y == c) for c in classes]
-    print(class_nums)
-    class_indices = [np.where(y == c)[0] for c in classes]
-
-    tmp_path = '/lfs/local/0/baharanm/faster/tmp'
-    no, smtk = 2, 2
-
-    def greedy(B, c):
-        print('Computing facility location submodular order...')
-        print(f'Calculating ordering with SMTK... part size: {class_nums[c]}, B: {B}', flush=True)
-        command = f'/lfs/local/0/baharanm/{no}/smtk-master{smtk}/build/smraiz -sumsize {B} \
-                                 -flnpy {tmp_path}/{no}/{smtk}-{c}.npy -pnpv -porder -ptime'
-        if stoch_greedy:
-            command += f' -stochastic-greedy -sg-epsilon {.9}'
-
-        p = subprocess.check_output(command.split())
-        s = p.decode("utf-8")
-        str, end = ['([', ',])']
-        order = s[s.find(str) + len(str):s.rfind(end)].split(',')
-        order = np.asarray(order, dtype=np.int64)
-        greedy_time = float(s[s.find('CPU') + 4 : s.find('s (User')])
-        print(f'FL greedy time: {greedy_time}', flush=True)
-        str = 'f(Solution) = '
-        F_val = float(s[s.find(str) + len(str) : s.find('Summary Solution') - 1])
-        print(f'===========> f(Solution) = {F_val}')
-        print('time (sec) for computing facility location:', greedy_time, flush=True)
-        return order, greedy_time, F_val
-
-    def get_subset_sizes(B, equal_num):
-        if equal_num:
-            # class_nums = [sum(y == c) for c in classes]
-            num_per_class = int(np.ceil(B / C)) * np.ones(len(classes), dtype=np.int32)
-            minority = class_nums < np.ceil(B / C)
-            if sum(minority) > 0:
-                extra = sum([max(0, np.ceil(B / C) - class_nums[c]) for c in classes])
-                for c in classes[~minority]:
-                    num_per_class[c] += int(np.ceil(extra / sum(minority)))
-        else:
-            num_per_class = np.int32(np.ceil(np.divide([sum(y == i) for i in classes], N) * B))
-
-        return num_per_class
-
-    def merge_orders(order_mg_all, weights_mg_all, equal_num):
-        order_mg, weights_mg = [], []
-        if equal_num:
-            props = np.rint([len(order_mg_all[i]) for i in range(len(order_mg_all))])
-        else:
-            # merging imbalanced classes
-            class_ratios = np.divide([np.sum(y == i) for i in classes], N)
-            props = np.rint(class_ratios / np.min(class_ratios))  # TODO
-            print(f'Selecting with ratios {np.array(class_ratios)}')
-            print(f'Class proportions {np.array(props)}')
-
-        order_mg_all = np.array(order_mg_all)
-        weights_mg_all = np.array(weights_mg_all)
-        for i in range(int(np.rint(np.max([len(order_mg_all[c]) / props[c] for c in classes])))):
-            for c in classes:
-                ndx = slice(i * int(props[c]), int(min(len(order_mg_all[c]), (i + 1) * props[c])))
-                order_mg = np.append(order_mg, order_mg_all[c][ndx])
-                weights_mg = np.append(weights_mg, weights_mg_all[c][ndx])
-        order_mg = np.array(order_mg, dtype=np.int32)
-        weights_mg = np.array(weights_mg, dtype=np.float)
-        return order_mg, weights_mg
-
-    def calculate_weights(order, c):
-        weight = np.zeros(len(order), dtype=np.float64)
-        center = np.argmax(D[str(c)][:, order], axis=1)
-        for i in range(len(order)):
-            weight[i] = np.sum(center == i)
-        return weight
-
-    D, m = {}, 0
-    similarity_times, max_similarity = [], []
-    for c in classes:
-        print(f'Computing distances for class {c}...')
-        time.sleep(.1)
-        start = time.time()
-        if metric in ['', 'l2', 'l1']:
-            dists = sklearn.metrics.pairwise_distances(X[class_indices[c]], metric=metric, n_jobs=1)
-        else:
-            p = float(metric)
-            dim = class_nums[c]
-            dists = np.zeros((dim, dim))
-            for i in range(dim):
-                dists[i,:] = np.power(np.sum(np.power(np.abs(X[class_indices[c][i]] - X[class_indices[c]]), p), axis=1), 1./p)
-                # for j in range(i+1, dim):
-                #     dists[i,j] = np.power(np.sum(np.power(np.abs(X[class_indices[c][i]] - X[class_indices[c][j]]), p)), 1./p)
-            # dists[np.triu_indices(dim, 1)] = d
-            # dists = dists.T + dists
-        similarity_times.append(time.time() - start)
-        print(f'similarity times: {similarity_times}')
-        print('Computing max')
-        m = np.max(dists)
-        print(f'max: {m}')
-        S = m - dists
-        np.save(f'{tmp_path}/{no}/{smtk}-{c}', S)
-        D[str(c)] = S
-        max_similarity.append(m)
-
-    # Ordering all the data with greedy
-    print(f'Greedy: selecting {class_nums} elements')
-    # order_in_class, greedy_times, F_vals = zip(*map(lambda c: greedy(class_nums[c], c), classes))
-    # order_all = [class_indices[c][order_in_class[c]] for c in classes]
-
-    # for subset_size in [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
-    for subset_size in [0.9, 1.0]:
-        B = int(N * subset_size)
-        num_per_class = get_subset_sizes(B, equal_num)
-
-        # Note: for marginal gains
-        order_in_class, greedy_times, F_vals = zip(*map(lambda c: greedy(num_per_class[c], c), classes))
-        order_all = [class_indices[c][order_in_class[c]] for c in classes]
-        #####
-
-        weights = [calculate_weights(order_in_class[c][:num_per_class[c]], c) for c in classes]
-        order_subset = [order_all[c][:num_per_class[c]] for c in classes]
-        order_merge, weights_merge = merge_orders(order_subset, weights, equal_num)
-        F_vals = np.divide(F_vals, class_nums)
-
-        # folder = '/lfs/local/0/baharanm/faster/subsets/final/covtype'
-        print(f'saving to {folder}_{subset_size}_{metric}_w.npz')
-        np.savez(f'{folder}_{subset_size}_{metric}_w', order=order_merge, weight=weights_merge,
-                 order_time=greedy_times, similarity_time=similarity_times, F_vals=F_vals, max_dist=m)
-    # end for on subset sizes
-    # return vals
 
 
 def get_orders_and_weights(B, X, metric, smtk, no=0, stoch_greedy=0, y=None, weights=None, equal_num=False, outdir='.'): #todo
@@ -550,11 +382,10 @@ def get_orders_and_weights(B, X, metric, smtk, no=0, stoch_greedy=0, y=None, wei
             weights_mg = np.append(weights_mg, cluster_sizes_all[c][ndx])
     order_mg = np.array(order_mg, dtype=np.int32)
 
-    # TODO!
     # class_ratios = np.divide([np.sum(y == i) for i in classes], N)
     # weights_mg[y[order_mg] == np.argmax(class_ratios)] /= (np.max(class_ratios) / np.min(class_ratios))
 
-    weights_mg = np.array(weights_mg, dtype=np.float32)  # / sum(weights_mg) TODO: removed division!
+    weights_mg = np.array(weights_mg, dtype=np.float32)
     ordering_time = np.max(greedy_times)
     similarity_time = np.max(similarity_times)
 
