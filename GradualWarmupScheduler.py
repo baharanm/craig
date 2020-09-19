@@ -3,7 +3,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 class GradualWarmupScheduler(_LRScheduler):
-    """ Gradually warm-up(increasing) learning rate in optimizer.
+    """
+    from: https://github.com/ildoonet/pytorch-gradual-warmup-lr
+    Gradually warm-up(increasing) learning rate in optimizer.
     Proposed in 'Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour'.
 
     Args:
