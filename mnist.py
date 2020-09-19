@@ -27,7 +27,7 @@ reg = 1e-4
 runs = 5
 save_subset = False
 
-folder = f'/tmp'
+folder = f'/tmp/mnist'
 
 
 model = Sequential()

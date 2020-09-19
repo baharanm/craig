@@ -50,56 +50,6 @@ class FacilityLocation:
         return self.curVal
 
 
-def lazy_greedy(F, ndx, B):
-    '''
-    Args
-    - F: FacilityLocation
-    - ndx: indices of all points
-    - B: int, number of points to select
-    '''
-    TOL = 1e-6
-    eps = 1e-15
-    curVal = 0
-    sset = []
-    order = []
-    vals = []
-    for v in ndx:
-        marginal = F.inc(sset, v) + eps
-        heapq.heappush(order, (1.0 / marginal, v, marginal))
-
-    while order and len(sset) < B:
-        el = heapq.heappop(order)
-        if not sset:
-            improv = el[2]
-        else:
-            improv = F.inc(sset, el[1]) + eps
-
-        # check for uniques elements
-        if improv > 0 + eps:
-            if not order:
-                curVal = F.add(sset, el[1])
-                # print curVal
-                #print str(len(sset)) + ', ' + str(el[1])
-                sset.append(el[1])
-                vals.append(curVal)
-            else:
-                top = heapq.heappop(order)
-                if improv >= top[2]:
-                    curVal = F.add(sset, el[1])
-                    #print curVal
-                    #print str(len(sset)) + ', ' + str(el[1])
-                    sset.append(el[1])
-                    vals.append(curVal)
-                else:
-                    heapq.heappush(order, (1.0 / improv, el[1], improv))
-                heapq.heappush(order, top)
-        else:
-            2
-
-    #print(sset)
-    return sset, vals
-
-
 def _heappush_max(heap, item):
     heap.append(item)
     heapq._siftdown_max(heap, 0, len(heap)-1)
@@ -130,24 +80,20 @@ def lazy_greedy_heap(F, V, B):
         improv = F.inc(sset, el[1])
 
         # check for uniques elements
-        if improv >= 0: #TODO <====
+        if improv >= 0:
             if not order:
                 curVal = F.add(sset, el[1])
-                # print curVal
                 sset.append(el[1])
                 vals.append(curVal)
             else:
                 top = _heappop_max(order)
                 if improv >= top[0]:
                     curVal = F.add(sset, el[1])
-                    # print curVal
                     sset.append(el[1])
                     vals.append(curVal)
                 else:
                     _heappush_max(order, (improv, el[1]))
                 _heappush_max(order, top)
-
-    #print(str(sset) + ', val: ' + str(curVal))
 
     return sset, vals
 
@@ -157,31 +103,6 @@ def test():
     X = np.random.rand(n, n)
     D = X * np.transpose(X)
     F = FacilityLocation(D, range(0, n))
-    sset = lazy_greedy(F, xrange(0, n), 15)
+    sset = lazy_greedy(F, range(0, n), 15)
     print(sset)
 
-
-def cifar(B, num_data):
-    G = pd.read_csv('/Users/baharan/Downloads/cifar10/resnet20/1533688447/feats.csv', nrows=num_data).values
-    n, dimensions = G.shape
-    mymean = np.mean(G, axis=1)
-    G = G - np.reshape(mymean, (n, 1)) * np.ones((1, dimensions))
-    mynorm = np.linalg.norm(G, axis=1)
-    N = np.matmul(np.reshape(mynorm, (n, 1)), np.ones((1, dimensions)))
-    G = G / N
-    G[np.argwhere(np.isnan(G))] = 0
-    G = G + 3 * np.ones((n, dimensions)) / np.sqrt(dimensions)  # shift away from origin
-    D = spatial.distance.cdist(G, G, 'euclidean')
-    N = np.linalg.norm(G, axis=1)
-    N = np.ones((1, n)) * np.reshape(N, (n, 1))
-    D = N - D
-    F = FacilityLocation(D, range(0, n))
-    sset, vals = lazy_greedy(F, xrange(0, n), B)
-    print(sset)
-    plt.plot(vals)
-    plt.show()
-    plt.savefig('cifar10.png')
-
-
-# cifar(500, 50)
-#test()

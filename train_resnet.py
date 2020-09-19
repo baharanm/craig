@@ -379,7 +379,7 @@ def main(subset_size=.1, greedy=0):
             grd += f'_warm' if args.warm_start > 0 else ''
             grd += f'_feature' if args.cluster_features else ''
             grd += f'_ca' if args.cluster_all else ''
-            folder = f'/lfs/local/0/baharanm/faster/subsets/final/cifar10'
+            folder = f'/tmp/cifar10'
 
             if args.save_subset:
                 print(

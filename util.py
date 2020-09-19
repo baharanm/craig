@@ -101,16 +101,7 @@ def load_dataset(dataset, dataset_dir):
             y[y == -1] = 0
         else:
             y = y - np.ones(len(y), dtype=np.int32)
-    # else:
-    #     X, y = [], []
-    #     path = os.path.join(dataset_dir, dataset)
-    #     with open(path, 'r') as f:
-    #         for line in f:
-    #             elements = line.split()
-    #             X.append([float(x.split(':')[1]) for x in elements[1:]])
-    #             y.append(float(elements[0]))
-    #     X = np.array(X)
-    #     y = np.array(y)
+
     return X, y
 
 
@@ -167,18 +158,11 @@ def similarity(X, metric):
     if metric == 'cosine':
         S = 1 - dists
     elif metric == 'euclidean' or metric == 'l1':
-        # S = np.exp(-dists)
-        # print('before max')
         m = np.max(dists)
-        # print(f'max: {m}')
         S = m - dists
-        # max: 7.856385231018066
-        L0 = m * len(dists)
-        # print(f'm-dist')
     else:
         raise ValueError(f'unknown metric: {metric}')
 
-    # print(f'time (sec) for computing {metric} similarity: {elapsed}, max_d*n = {L0}', flush=True)
     return S, elapsed
 
 
@@ -220,7 +204,6 @@ def greedy_merge(X, y, B, part_num, metric, smtk=0, stoch_greedy=False):
     # order_mg, weights_mg, order_sz, weights_sz, ordering_time, similarity_time
     order, weights, order_sz, weights_sz, ordering_time_merge, similarity_time_merge = get_orders_and_weights(
         B, X[order_mg, :], metric, smtk, stoch_greedy, y[order_mg], weights_mg)
-    # weights /= (np.sum(weights))  # TODO <=============
     print(weights)
     total_ordering_time = np.max(ordering_time) + ordering_time_merge
     total_similarity_time = np.max(similarity_time) + similarity_time_merge
@@ -271,7 +254,6 @@ def greedi(X, y, B, part_num, metric, smtk=0, stoch_greedy=False, seed=-1):
     # order_mg, weights_mg, order_sz, weights_sz, ordering_time, similarity_time
     order, weights, order_sz, weights_sz, ordering_time_merge, similarity_time_merge = get_orders_and_weights(
         B, X[order_mg,:], metric, smtk, stoch_greedy, y[order_mg], weights_mg)
-    # weights /= (np.sum(weights)) #TODO NOTE <=============
     print(weights)
     order = order_mg[order]
     total_ordering_time = np.max(ordering_time) + ordering_time_merge
@@ -297,31 +279,29 @@ def get_facility_location_submodular_order(S, B, c, smtk=0, no=0, stoch_greedy=0
 
     if smtk > 0:
         print(f'Calculating ordering with SMTK... part size: {len(S)}, B: {B}', flush=True)
-        np.save(f'/lfs/local/0/baharanm/faster/tmp/{no}/{smtk}-{c}', S) #todo:try thread for greedi
+        np.save(f'/tmp/{no}/{smtk}-{c}', S)
         if stoch_greedy > 0:
             p = subprocess.check_output(
-                f'/lfs/local/0/baharanm/{no}/smtk-master{smtk}/build/smraiz -sumsize {B} \
-                 -stochastic-greedy -sg-epsilon {stoch_greedy} -flnpy /lfs/local/0/baharanm/faster/tmp/{no}/{smtk}-{c}.'
+                f'/tmp/{no}/smtk-master{smtk}/build/smraiz -sumsize {B} \
+                 -stochastic-greedy -sg-epsilon {stoch_greedy} -flnpy /tmp/{no}/{smtk}-{c}.'
                 f'npy -pnpv -porder -ptime'.split())
         else:
             p = subprocess.check_output(
-                f'/lfs/local/0/baharanm/{no}/smtk-master{smtk}/build/smraiz -sumsize {B} \
-                             -flnpy /lfs/local/0/baharanm/faster/tmp/{no}/{smtk}-{c}.npy -pnpv -porder -ptime'.split())
+                f'/tmp/{no}/smtk-master{smtk}/build/smraiz -sumsize {B} \
+                             -flnpy /tmp/{no}/{smtk}-{c}.npy -pnpv -porder -ptime'.split())
         s = p.decode("utf-8")
         str, end = ['([', ',])']
         order = s[s.find(str) + len(str):s.rfind(end)].split(',')
         greedy_time = float(s[s.find('CPU') + 4 : s.find('s (User')])
-        # print(f'FL greedy time: {greedy_time}', flush=True)
         str = 'f(Solution) = '
         F_val = float(s[s.find(str) + len(str) : s.find('Summary Solution') - 1])
-        # print(f'===========> f(Solution) = {F_val}')
     else:
         V = list(range(N))
         start = time.time()
         F = FacilityLocation(S, V)
         order, _ = lazy_greedy_heap(F, V, B)
         greedy_time = time.time() - start
-        F_val = 0 # TODO
+        F_val = 0
 
     order = np.asarray(order, dtype=np.int64)
     sz = np.zeros(B, dtype=np.float64)
@@ -364,7 +344,7 @@ def save_all_orders_and_weights(folder, X, metric='l2', stoch_greedy=False, y=No
     def greedy(B, c):
         print('Computing facility location submodular order...')
         print(f'Calculating ordering with SMTK... part size: {class_nums[c]}, B: {B}', flush=True)
-        command = f'/lfs/local/0/baharanm/{no}/smtk-master{smtk}/build/smraiz -sumsize {B} \
+        command = f'/tmp/{no}/smtk-master{smtk}/build/smraiz -sumsize {B} \
                                  -flnpy {tmp_path}/{no}/{smtk}-{c}.npy -pnpv -porder -ptime'
         if stoch_greedy:
             command += f' -stochastic-greedy -sg-epsilon {.9}'
@@ -403,7 +383,7 @@ def save_all_orders_and_weights(folder, X, metric='l2', stoch_greedy=False, y=No
         else:
             # merging imbalanced classes
             class_ratios = np.divide([np.sum(y == i) for i in classes], N)
-            props = np.rint(class_ratios / np.min(class_ratios))  # TODO
+            props = np.rint(class_ratios / np.min(class_ratios))
             print(f'Selecting with ratios {np.array(class_ratios)}')
             print(f'Class proportions {np.array(props)}')
 
@@ -473,7 +453,7 @@ def save_all_orders_and_weights(folder, X, metric='l2', stoch_greedy=False, y=No
         order_merge, weights_merge = merge_orders(order_subset, weights, equal_num)
         F_vals = np.divide(F_vals, class_nums)
 
-        # folder = '/lfs/local/0/baharanm/faster/subsets/final/covtype'
+        folder = '/tmp/covtype'
         print(f'saving to {folder}_{subset_size}_{metric}_w.npz')
         np.savez(f'{folder}_{subset_size}_{metric}_w', order=order_merge, weight=weights_merge,
                  order_time=greedy_times, similarity_time=similarity_times, F_vals=F_vals, max_dist=m)
@@ -481,7 +461,7 @@ def save_all_orders_and_weights(folder, X, metric='l2', stoch_greedy=False, y=No
     # return vals
 
 
-def get_orders_and_weights(B, X, metric, smtk, no=0, stoch_greedy=0, y=None, weights=None, equal_num=False, outdir='.'): #todo
+def get_orders_and_weights(B, X, metric, smtk, no=0, stoch_greedy=0, y=None, weights=None, equal_num=False, outdir='.'):
     '''
     Ags
     - X: np.array, shape [N, d]
@@ -537,7 +517,7 @@ def get_orders_and_weights(B, X, metric, smtk, no=0, stoch_greedy=0, y=None, wei
     else:
         # merging imbalanced classes
         class_ratios = np.divide([np.sum(y == i) for i in classes], N)
-        props = np.rint(class_ratios / np.min(class_ratios)) # TODO
+        props = np.rint(class_ratios / np.min(class_ratios))
         print(f'Selecting with ratios {np.array(class_ratios)}')
         print(f'Class proportions {np.array(props)}')
 
@@ -550,11 +530,10 @@ def get_orders_and_weights(B, X, metric, smtk, no=0, stoch_greedy=0, y=None, wei
             weights_mg = np.append(weights_mg, cluster_sizes_all[c][ndx])
     order_mg = np.array(order_mg, dtype=np.int32)
 
-    # TODO!
     # class_ratios = np.divide([np.sum(y == i) for i in classes], N)
     # weights_mg[y[order_mg] == np.argmax(class_ratios)] /= (np.max(class_ratios) / np.min(class_ratios))
 
-    weights_mg = np.array(weights_mg, dtype=np.float32)  # / sum(weights_mg) TODO: removed division!
+    weights_mg = np.array(weights_mg, dtype=np.float32)
     ordering_time = np.max(greedy_times)
     similarity_time = np.max(similarity_times)
 

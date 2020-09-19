@@ -153,8 +153,8 @@ class Optimizer(object):
         return W, T
 
 
-def load_dataset(dataset, normalize=False): # TODO <===
-    DATASET_DIR = '/dfs/scratch2/turing1-backup/lfs/turing1/0/baharanm/data/'
+def load_dataset(dataset, normalize=False):
+    DATASET_DIR = '/tmp/data/'
     if dataset == 'covtype':
         print(f'Loading {dataset}')
         X, y = util.load_dataset('covtype', DATASET_DIR)
@@ -176,7 +176,7 @@ def load_dataset(dataset, normalize=False): # TODO <===
         X_train, y_train = util.load_dataset('ijcnn1.tr', DATASET_DIR)
         X_test, y_test = util.load_dataset('ijcnn1.t', DATASET_DIR)
         # X_train, y_train = X_train[:500], y_train[:500]
-        X_val, y_val = X_test, y_test  # TODO <======================
+        X_val, y_val = X_test, y_test
 
     elif dataset == 'combined':
         print(f'Loading {dataset}')
@@ -194,7 +194,7 @@ def load_dataset(dataset, normalize=False): # TODO <===
         data_mean = np.vstack([X_train, X_test]).mean(axis=0)
         X_train -= data_mean
         X_test -= data_mean
-        X_val, y_val = X_test, y_test  # TODO <========================
+        X_val, y_val = X_test, y_test
 
     if dataset in ['covtype', 'ijcnn1']:
         y_train = np.reshape(y_train, (-1, 1))
@@ -313,7 +313,7 @@ def test(method='sgd', data='covtype', exp_decay=1, subset_size=1., greedy=1, sh
     else:
         g_range, b_range = get_param_range(subset_size, exp_decay, method, data)
 
-    folder = f'/lfs/local/0/baharanm/faster/subsets/final/{data}'
+    folder = f'/tmp/{data}'
     x_runs_f = [[]] * num_runs
     f_runs_f = np.zeros((num_runs, num_epochs))
     ft_runs_f = np.zeros((num_runs, num_epochs))
@@ -402,7 +402,7 @@ def test(method='sgd', data='covtype', exp_decay=1, subset_size=1., greedy=1, sh
 
 
 def gradient_difference(data, method, rand, metric, reg=1e-5):
-    folder = f'/lfs/local/0/baharanm/faster/subsets/final/{data}'
+    folder = f'/tmp/{data}'
     train_data, train_target, val_data, val_target, test_data, test_target = load_dataset(data)
 
     num_runs = 1 if 'grd' in rand else 5
