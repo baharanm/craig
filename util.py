@@ -105,41 +105,6 @@ def load_dataset(dataset, dataset_dir):
     return X, y
 
 
-def compute_raw_clusters(X):
-    '''
-    Args
-    - X: np.array, shape [N, d]
-
-    Returns
-    - clusters: list of lists of indices
-      - clusters[c] gives the indices into X corresponding to cluster c
-      - clusters are sorted from largest to smallest
-    '''
-    print('Computing raw clusters...')
-    N, d = X.shape
-    start = time.time()
-    rbp = RandomBinaryProjections('rbp', 10, rand_seed=SEED)
-    engine = Engine(d, lshashes=[rbp], distance=EuclideanDistance(), vector_filters=[NearestFilter(1)])
-    cluster_idx = -1 * np.ones(N)
-    clusters = []
-    for i in range(N):
-        neighbor_list = engine.neighbours(X[i])
-        if len(neighbor_list) > 0:
-            neighbor = neighbor_list[0][1]
-            cluster_idx[i] = cluster_idx[neighbor]
-            clusters[cluster_idx[i]].append(i)
-        else:
-            cluster_idx[i] = len(clusters)
-            clusters.append([i])
-        engine.store_vector(X[i], data=i)
-        if (i + 1) % 10000 == 0:
-            print(f'finished {i + 1} points')
-
-    print('number of clusters:', len(clusters))
-    print('time:', time.time() - start)
-    return sorted(clusters, key=lambda x: -len(x))
-
-
 def similarity(X, metric):
     '''Computes the similarity between each pair of examples in X.
 
@@ -153,6 +118,7 @@ def similarity(X, metric):
     # print(f'Computing similarity for {metric}...', flush=True)
     start = time.time()
     dists = sklearn.metrics.pairwise_distances(X, metric=metric, n_jobs=1)
+    # dists = gdist(X, X, optimize_level=0, output='cpu')
     elapsed = time.time() - start
 
     if metric == 'cosine':
@@ -203,7 +169,7 @@ def greedy_merge(X, y, B, part_num, metric, smtk=0, stoch_greedy=False):
 
     # order_mg, weights_mg, order_sz, weights_sz, ordering_time, similarity_time
     order, weights, order_sz, weights_sz, ordering_time_merge, similarity_time_merge = get_orders_and_weights(
-        B, X[order_mg, :], metric, smtk, stoch_greedy, y[order_mg], weights_mg)
+        B, X[order_mg, :], metric, smtk, 0, stoch_greedy, y[order_mg], weights_mg)
     print(weights)
     total_ordering_time = np.max(ordering_time) + ordering_time_merge
     total_similarity_time = np.max(similarity_time) + similarity_time_merge
@@ -253,7 +219,7 @@ def greedi(X, y, B, part_num, metric, smtk=0, stoch_greedy=False, seed=-1):
 
     # order_mg, weights_mg, order_sz, weights_sz, ordering_time, similarity_time
     order, weights, order_sz, weights_sz, ordering_time_merge, similarity_time_merge = get_orders_and_weights(
-        B, X[order_mg,:], metric, smtk, stoch_greedy, y[order_mg], weights_mg)
+        B, X[order_mg,:], metric, smtk, 0, stoch_greedy, y[order_mg], weights_mg)
     print(weights)
     order = order_mg[order]
     total_ordering_time = np.max(ordering_time) + ordering_time_merge
@@ -326,7 +292,7 @@ def faciliy_location_order(c, X, y, metric, num_per_class, smtk, no, stoch_greed
     return class_indices[order], cluster_sz, greedy_time, S_time
 
 
-def save_all_orders_and_weights(folder, X, metric='l2', stoch_greedy=False, y=None, equal_num=False, outdir='.'): #todo
+def save_all_orders_and_weights(folder, X, metric='l2', stoch_greedy=False, y=None, equal_num=False, outdir='.'):
     N = X.shape[0]
     if y is None:
         y = np.zeros(N, dtype=np.int32)  # assign every point to the same class
@@ -338,7 +304,7 @@ def save_all_orders_and_weights(folder, X, metric='l2', stoch_greedy=False, y=No
     print(class_nums)
     class_indices = [np.where(y == c)[0] for c in classes]
 
-    tmp_path = '/lfs/local/0/baharanm/faster/tmp'
+    tmp_path = '/tmp'
     no, smtk = 2, 2
 
     def greedy(B, c):
@@ -354,7 +320,7 @@ def save_all_orders_and_weights(folder, X, metric='l2', stoch_greedy=False, y=No
         str, end = ['([', ',])']
         order = s[s.find(str) + len(str):s.rfind(end)].split(',')
         order = np.asarray(order, dtype=np.int64)
-        greedy_time = float(s[s.find('CPU') + 4 : s.find('s (User')])
+        greedy_time = float(s[s.find('CPU') + 4: s.find('s (User')])
         print(f'FL greedy time: {greedy_time}', flush=True)
         str = 'f(Solution) = '
         F_val = float(s[s.find(str) + len(str) : s.find('Summary Solution') - 1])
@@ -438,8 +404,8 @@ def save_all_orders_and_weights(folder, X, metric='l2', stoch_greedy=False, y=No
     # order_in_class, greedy_times, F_vals = zip(*map(lambda c: greedy(class_nums[c], c), classes))
     # order_all = [class_indices[c][order_in_class[c]] for c in classes]
 
-    # for subset_size in [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
-    for subset_size in [0.9, 1.0]:
+    for subset_size in [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+    # for subset_size in [0.9, 1.0]:
         B = int(N * subset_size)
         num_per_class = get_subset_sizes(B, equal_num)
 

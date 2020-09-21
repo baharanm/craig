@@ -277,11 +277,11 @@ def get_param_range(subset_size, exp_decay, method, data):
             g_range = np.arange(40, 52) * .001
             b_range = np.arange(50, 55) * .01
     else:
-        g_range = [0.1, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.25, 0.3, 0.35]  # already done: 0.01, 0.03, 0.05
+        g_range = [0.1, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.25, 0.3, 0.35]
         b_range = [0.7, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8, 0.81, 0.82, 0.83, 0.84, 0.85, 0.9, 0.95]
         if subset_size < 1:
             g_range = [0.000035, 0.009, 0.01, 0.013, 0.015, 0.017, 0.018, 0.019, 0.02, 0.025, 0.03]
-            b_range = np.arange(0, 19) * .01  # [1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7]
+            b_range = np.arange(0, 19) * .01
 
     # fixed step size for svrg, saga
     if data == 'covtype' and method in ['svrg', 'saga']:
@@ -298,10 +298,9 @@ def get_param_range(subset_size, exp_decay, method, data):
 def test(method='sgd', data='covtype', exp_decay=1, subset_size=1., greedy=1, shuffle=0, g_cnt=-1.,
          b_cnt=-1., num_runs=10, metric='', reg=1e-5, rand='', num_epochs=-1, from_all=0):
     if num_epochs == -1:
-        num_epochs = 20 + int(np.ceil((1. / subset_size) * 5)) + 5 if subset_size < 1 else 20  # Todo <-- (+5)
+        num_epochs = 20 + int(np.ceil((1. / subset_size) * 5)) + 5 if subset_size < 1 else 20
     else:
         rand += f'_e{num_epochs}'
-    # num_parts = 1
 
     train_data, train_target, val_data, val_target, test_data, test_target = load_dataset(data)
     num_class = 1 if data in ['covtype', 'ijcnn1'] else 3
@@ -345,9 +344,13 @@ def test(method='sgd', data='covtype', exp_decay=1, subset_size=1., greedy=1, sh
                     train_y = np.zeros(np.shape(train_y), dtype=int)
                     folder += '_all'
 
-                util.save_all_orders_and_weights(folder, train_data, metric=metric,
-                                                 stoch_greedy=False, y=train_y, equal_num=False)
-                return
+                order, weights, _, _, ordering_time, similarity_time = util.get_orders_and_weights(
+                    int(subset_size * len(train_data)), train_data, 'euclidean', 0, 0, False, train_y)
+
+                """ use the following to calculate the ordering for various subset sizes """
+                # util.save_all_orders_and_weights(folder, train_data, metric=metric,
+                #                                  stoch_greedy=False, y=train_y, equal_num=False)
+                # return
         else:
             print('Selecting a random subset')
             order = np.arange(0, len(train_data))
@@ -496,7 +499,7 @@ if __name__ == '__main__':
                    help='L2 regularization constant')
     p.add_argument('--method', type=str, required=False, default='sgd',
                    choices=['sgd', 'svrg', 'saga'], help='sgd, svrg, saga')
-    p.add_argument('--subset_size', type=float, required=False,
+    p.add_argument('--subset_size', '-s', type=float, required=False,
                    help='size of the subset')
     p.add_argument('--shuffle', type=int, default=2,
                    choices=[0, 1, 2, 3],
@@ -535,6 +538,5 @@ if __name__ == '__main__':
         gradient_difference(data=args.data, method=args.method, rand=rand, metric=args.metric)
     else:
         test(method=args.method, data=args.data, exp_decay=args.exp_decay, subset_size=args.subset_size,
-             # file_num=args.file_num,
              greedy=args.greedy, shuffle=args.shuffle, b_cnt=args.b, g_cnt=args.g, num_runs=args.num_runs,
              metric=args.metric, rand=rand, num_epochs=args.num_epochs, from_all=args.from_all)
